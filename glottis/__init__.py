@@ -1,6 +1,6 @@
 import glottis.__module as __module
 
-__all__ = ["settings", "errors", "configs", "datasets", "models"]
+__all__ = ["settings", "errors", "configs","models"]
 
 
 def load_local_modules() -> None:
@@ -11,8 +11,7 @@ def load_local_modules() -> None:
     """
     SUBMODULE_IMPORT_ORDER = ["settings", 
                               "errors", 
-                              "configs", 
-                              "datasets", 
+                              "configs",  
                               "models"]
 
     __module.utils.ImportTimerBulk(

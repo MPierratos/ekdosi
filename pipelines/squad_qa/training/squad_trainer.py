@@ -9,14 +9,14 @@ from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 from transformers import DistilBertForQuestionAnswering, DistilBertTokenizerFast
 
-from glottis.datasets import SquadDataset
+from datasets import SquadDataset
 
 from glottis.configs import ExecutorConfig
 
 import pathlib
 
 config_path = pathlib.Path(__file__).parent / "config.yml"
-config  = ExecutorConfig.load_yaml()
+config  = ExecutorConfig.load_yaml(config_path)
 
 
 logger = logging.getLogger(__name__)
