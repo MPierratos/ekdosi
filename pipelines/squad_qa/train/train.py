@@ -5,7 +5,7 @@ import transformers
 from peft import LoraConfig, get_peft_model
 from sklearn.metrics import f1_score
 from torch import optim
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader, random_split
 from tqdm import tqdm
 from transformers import DistilBertForQuestionAnswering, DistilBertTokenizerFast
 
@@ -15,47 +15,46 @@ from glottis.configs import ExecutorConfig
 
 import pathlib
 
-config_path = pathlib.Path(__file__).parent / "config.yml"
-config  = ExecutorConfig.load_yaml(config_path)
 
+logger = logging.getLogger("glottis")
 
-logger = logging.getLogger(__name__)
-
-if __name__ == "__main__":
+def train(dataset: Dataset,
+          config: ExecutorConfig):
+    
     transformers.utils.logging.set_verbosity_error()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    LEARNING_RATE = 5e-5
-    BATCH_SIZE = 16
-    EPOCHS = 3
+    LEARNING_RATE = config.optimizer.optimizer_extra_configs['lr']
+    BATCH_SIZE = config.train.batch_size
+    EPOCHS = config.train.epochs
     DATA_PATH = "/mnt/n/projects/squad/data/raw/train-v2.0.json"
     CACHE_DIR = "/mnt/n/projects/.cache/"
 
     MODEL_PATH = "distilbert-base-uncased"
     MODEL_SAVE_PATH = f"/mnt/n/projects/squad/models/{MODEL_PATH}-lr{LEARNING_RATE}-epochs{EPOCHS}-batchsize{BATCH_SIZE}/"
-    LORA = True
 
     tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_PATH, cache_dir=CACHE_DIR)
     model = DistilBertForQuestionAnswering.from_pretrained(
         MODEL_PATH, cache_dir=CACHE_DIR
     ).to(device)
 
-    if LORA:
-        config = LoraConfig(
-            task_type="QUESTION_ANS",
-            inference_mode=False,
-            r=16,
-            lora_alpha=32,
-            lora_dropout=0.05,
-            fan_in_fan_out=False,
-            bias="none",
-            # to fetch target_modules, look at print(model) and look at Attention layers
-            target_modules=["q_lin", "k_lin", "v_lin", "out_lin"],
-        )
-        logger.info("#" * 32, "Trainable parameters Before LoRA", "#" * 32)
-        logger.info(model.num_parameters()) 
-        model = get_peft_model(model, config)
-        logger.info("#" * 32, "Trainable parameters After LoRA", "#" * 32)
+    if 'peft_config' in config.model:
+        if config.model.peft_config['peft_type'] == 'LORA':
+            peft_config = LoraConfig(
+                task_type="QUESTION_ANS",
+                inference_mode=False,
+                r=16,
+                lora_alpha=32,
+                lora_dropout=0.05,
+                fan_in_fan_out=False,
+                bias="none",
+                # to fetch target_modules, look at print(model) and look at Attention layers
+                target_modules=["q_lin", "k_lin", "v_lin", "out_lin"],
+            )
+            logger.info("#" * 32, "Trainable parameters Before LoRA", "#" * 32)
+            logger.info(model.num_parameters()) 
+            model = get_peft_model(model, config)
+            logger.info("#" * 32, "Trainable parameters After LoRA", "#" * 32)
         model.print_trainable_parameters()
 
     dataset = SquadDataset(
@@ -159,3 +158,12 @@ if __name__ == "__main__":
 
     f1_value = f1_score(true, preds, average="macro")
     logger.info(f1_value)
+
+
+
+if __name__ == "__main__":
+
+    config_path = pathlib.Path(__file__).parent.parent / "config.yml"
+    logger.info(config_path)
+    config  = ExecutorConfig.load_yaml(config_path)
+    

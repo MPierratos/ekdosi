@@ -1,6 +1,11 @@
-# Conda, Poetry setup
+# Usage
 
-https://stackoverflow.com/questions/70851048/does-it-make-sense-to-use-conda-poetry
+### Set your data directory
+
+`export DATA_DIR = '<path to your data>'`, otherwise the default is set to the user cache
+`~/.cache/python--glottis`
+
+# SETUP
 
 ## Generate a conda-lock file
 

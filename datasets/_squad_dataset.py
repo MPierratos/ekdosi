@@ -88,9 +88,10 @@ class SquadDataset(Dataset):
 
 def test_squad_dataset():
     from transformers import DistilBertTokenizerFast
+    from datasets import DATA_DIR
 
     CACHE_DIR = "/mnt/n/projects/.cache/"
-    data_path = pathlib.Path("/mnt/n/projects/squad/data/raw/dev-v2.0.json")
+    data_path = DATA_DIR / "squad/data/raw/dev-v2.0.json"
 
     tokenizer = DistilBertTokenizerFast.from_pretrained(
         "distilbert-base-uncased", cache_dir=CACHE_DIR
@@ -98,4 +99,5 @@ def test_squad_dataset():
     dataset = SquadDataset(
         data_path=data_path, data_sample_size=20_000, tokenizer=tokenizer
     )
+    print(dataset[0].keys())
     return dataset

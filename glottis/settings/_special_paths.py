@@ -22,13 +22,11 @@ class ModuleSpecialPaths:
             Note: user_cache_* usually means $HOME/.cache
 
     user_share -> Where user-specific data files should be stored.
-    user_config -> Where user-specific configuratino filse should be stored.
+    user_config -> Where user-specific configuration files should be stored.
     user_cache -> Where user-specific non-essental data files should be stored.
     temp_* is meant for general, non user specific storage with a short lifetime,
         where it is dependant upon the OS to clean. Usually on reboot, sometimes
         pruned on file lifetime.
-
-    external_data -> Another storage location for data files
 
     """
 

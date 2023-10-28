@@ -15,14 +15,14 @@ class TokenizerConfig(BaseModel):
         cache_dir (pathlib.Path): location to extract/save hf tokenizer assets 
         padding_side (str): side to add padding, left or right
         trunction_side (str): side to truncate for longer text
-        extra_configs (Dict[str, Any]): additional configs to be passed to the tokenizer
+        tokenizer_extra_configs (Dict[str, Any]): additional configs to be passed to the tokenizer
     """
 
     tokenizer_path: str
     cache_dir: pathlib.Path
     padding_side: str = "left"
     truncation_side: str = "right"
-    extra_configs: Dict[str, Any] = Field(default_factory=dict)
+    tokenizer_extra_configs: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]):
@@ -40,26 +40,57 @@ class ModelConfig(BaseModel):
                     (i.e. https://github.com/huggingface/peft)
             Example config for LORA:
                 {"peft_type": "LORA", 
-                  "task_type"
                   "r": 8, 
                   "lora_alpha":32, 
                   "lora_dropout":0.05,
                   "task_type":"QUESTION_ANS"
                   "inference_mode":False,
-                  "fan_in_fan_out"=False,
+                  "fan_in_fan_out":False,
                   "bias":"none"
                   "target_modules":["q_lin", "k_lin", "v_lin", "out_lin"]
                   }
             Note: to fetch target_modules, look at print(model) and look at Attention layers
     
-        extra_configs (Dict[str, Any]): additional configs to be passed to the tokenizer
+        mod_extra_configs (Dict[str, Any]): additional configs to be passed to the tokenizer
     """
 
     mod_path: str
     cache_dir: pathlib.Path
     num_layers_unfrozen: int = -1
     peft_config: Any = None
-    extra_configs: Dict[str, Any] = Field(default_factory=dict)
+    mod_extra_configs: Dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]):
+        return cls(**config)
+
+class OptimizerConfig(BaseModel):
+    """Config for the optimizer.
+
+    Args:
+        name (str): optimizer name
+        optimizer_extra_configs (Dict[str, Any]): configs tied to the specific optimizer
+        
+    """
+
+    name: str
+    optimizer_extra_configs: Dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]):
+        return cls(**config)
+
+class TrainConfig(BaseModel):
+    """Config for training.
+
+    Args:
+        epochs (int): number of epochs (iterations of the dataset)
+        batch_size (int): number of records for gradient updates
+        
+    """
+
+    epochs: int
+    batch_size: int
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]):
@@ -70,10 +101,10 @@ class ExecutorConfig(BaseModel):
     """Top level config for a pipeline"""
 
     model: ModelConfig
-    #optimizer: OptimizerConfig
+    optimizer: OptimizerConfig
     #scheduler: SchedulerConfig
     tokenizer: TokenizerConfig
-    #train: TrainConfig
+    train: TrainConfig
 
     @classmethod
     def load_yaml(cls, yaml_path: pathlib.Path|str):
@@ -92,6 +123,8 @@ class ExecutorConfig(BaseModel):
         data = {
             "tokenizer": self.tokenizer.__dict__,
             "model": self.model.__dict__,
+            "optimizer": self.optimizer.__dict__,
+            "train": self.train.__dict__
         }
 
         return data
@@ -101,10 +134,7 @@ class ExecutorConfig(BaseModel):
         return cls(
             tokenizer=TokenizerConfig.from_dict(config.tokenizer),
             model=ModelConfig.from_dict(config.model),
+            optimizer=OptimizerConfig.from_dict(config.optimizer),
+            train=TrainConfig.from_dict(config.train),
         )
    
-
-    def __str__(self) -> str:
-        """Returns a human-readable string representation of the config."""
-        return json.dumps(self.to_dict(), indent=4)
-  
