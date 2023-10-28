@@ -1,0 +1,35 @@
+train:
+  seq_length: 64 # Size of LM context
+  epochs: 3 # Train for max(epochs, total_steps)
+  total_steps: 1000 # Train for max(epochs, total_steps)
+  batch_size: 16 # batch size
+
+  # checkpoint_interval: 10000 # checkpoint interval
+  # eval_interval: 128 # eval interval
+
+  # pipeline: "PromptPipeline" # prompt pipeline to load
+  # trainer: "AcceleratePPOTrainer" # Name of model trainer to load
+
+model:
+  mod_path: "distilbert-base-uncased" # Name of hf model to load
+  cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf model assets
+  num_layers_unfrozen: 2 # Number of bottom layers to freeze during training
+
+tokenizer:
+  tokenizer_path: "distilbert-base-uncased" # Name of hf tokenizer to load
+  cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf tokenizer assets 
+  truncation_side: "right" # Trim this side of samples if they are longer than LM context
+
+optimizer:
+  name: "adamw" # Name of optimizer to load
+  kwargs:
+    lr: 1.412e-4 # Learning rate
+    betas: [0.9, 0.95] # Adam betas
+    eps: 1.0e-8 # Adam eps
+    weight_decay: 1.0e-6 # Weight decay param
+
+scheduler:
+  name: "cosine_annealing" # Name of learning rate scheduler
+  kwargs:
+    T_max: 10000 # Maximum number of steps
+    eta_min: 1.412e-4 # Minimum learning rate
