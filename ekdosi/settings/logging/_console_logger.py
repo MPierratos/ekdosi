@@ -6,8 +6,8 @@ import re
 from logging import Formatter
 
 # Local Imports
-import glottis.__module as __module
-from glottis.settings.logging._terminal_colours import (
+import ekdosi.__module as __module
+from ekdosi.settings.logging._terminal_colours import (
     DefaultColourFormat,
     NullColourFormatBase,
 )

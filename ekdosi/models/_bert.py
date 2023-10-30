@@ -2,7 +2,7 @@ import logging
 
 import torch
 import torch.nn as nn
-from glottis.models import register_model
+from ekdosi.models import register_model
 
 logger = logging.getLogger(__name__)
 

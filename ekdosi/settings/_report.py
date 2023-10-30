@@ -1,7 +1,7 @@
 import logging
 
-import glottis.__module as __module
-import glottis.settings as settings
+import ekdosi.__module as __module
+import ekdosi.settings as settings
 
 __all__ = ["show"]
 

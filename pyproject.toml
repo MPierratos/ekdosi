@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "glottis"
+name = "ekdosi"
 version = "0.1.0"
-description = "glottis, inspired by the part of the larynx involved in speech"
+description = "ekdosi, greek word for edition. This repo provides convenient methods building deep learning models"
 authors = ["Michael Pierratos <mpierratos@gmail.com>"]
 readme = "README.md"
 packages = [
-    {include = "glottis"},
+    {include = "ekdosi"},
     {include = "datasets"},
     {include = "pipelines"}
 ]

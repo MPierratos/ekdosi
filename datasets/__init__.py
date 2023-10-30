@@ -1,5 +1,5 @@
 import os
-from glottis.settings import special_paths
+from ekdosi.settings import special_paths
 import pathlib
 
 __all__ = ["SquadDataSet"]
@@ -7,7 +7,7 @@ __all__ = ["SquadDataSet"]
 def _default_data_dir() -> pathlib.Path:
     """sets the data dir to the user cache as the default dir
     
-    i.e. ~/.cache/python--glottis
+    i.e. ~/.cache/python--ekdosi
     """
     return special_paths.user_cache
    

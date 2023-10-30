@@ -1,7 +1,6 @@
 
 from typing import Dict, Any
 import pathlib
-import json
 from pydantic import BaseModel, Field
 from omegaconf import OmegaConf
 

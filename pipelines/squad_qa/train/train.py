@@ -11,12 +11,12 @@ from transformers import DistilBertForQuestionAnswering, DistilBertTokenizerFast
 
 from datasets import SquadDataset
 
-from glottis.configs import ExecutorConfig
+from ekdosi.configs import ExecutorConfig
 
 import pathlib
 
 
-logger = logging.getLogger("glottis")
+logger = logging.getLogger("ekdosi")
 
 def train(dataset: Dataset,
           config: ExecutorConfig):

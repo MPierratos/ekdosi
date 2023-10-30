@@ -3,19 +3,15 @@
 ### Set your data directory
 
 `export DATA_DIR = '<path to your data>'`, otherwise the default is set to the user cache
-`~/.cache/python--glottis`
+`~/.cache/python--ekdosi`
 
 # SETUP
-
-## Generate a conda-lock file
-
-`./bootstrap.sh`
 
 ## Create a virtual environment with torch-gpu
 
 ```sh
-conda create --name glottis --file conda-linux-64.lock
-conda activate glottis
+conda create --name ekdosi --file conda-linux-64.lock
+conda activate ekdosi
 conda install lockfile html5lib 
 poetry install
 ```
@@ -23,7 +19,7 @@ poetry install
 ## Activate the environment 
 
 ```sh
-conda activate glottis
+conda activate ekdosi
 ```
 
 ## Update the environment

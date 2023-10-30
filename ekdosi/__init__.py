@@ -1,4 +1,4 @@
-import glottis.__module as __module
+import ekdosi.__module as __module
 
 __all__ = ["settings", "errors", "configs","models"]
 

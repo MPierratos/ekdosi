@@ -1,6 +1,6 @@
 from typing import Dict
 import sys
-from glottis.errors import ModelNotFoundError
+from ekdosi.errors import ModelNotFoundError
 
 __all__ = ["BERTEmbedding", "BERT", "register_model"]
 
@@ -45,7 +45,7 @@ def get_from_registry(model_name: str):
     else:
         raise ModelNotFoundError("Model not found in the registry.")
 
-from glottis.models._bert import BERTEmbedding, BERT, test_bert
+from ekdosi.models._bert import BERTEmbedding, BERT, test_bert
 
 # cleanup
 del sys
