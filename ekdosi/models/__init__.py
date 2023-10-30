@@ -30,9 +30,11 @@ def register_model(name: str):
 
     return cls
 
+
 def models_in_registry() -> list:
     """return list of model names in the registry"""
     return list(_MODELS.keys())
+
 
 def get_from_registry(model_name: str):
     """get a model from the registry
@@ -44,6 +46,7 @@ def get_from_registry(model_name: str):
         return _MODELS.get(model_name)
     else:
         raise ModelNotFoundError("Model not found in the registry.")
+
 
 from ekdosi.models._bert import BERTEmbedding, BERT, test_bert
 

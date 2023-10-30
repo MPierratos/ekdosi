@@ -4,7 +4,6 @@ train:
 
 model:
   mod_path: "distilbert-base-uncased" # Name of hf model to load
-  cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf model assets
   peft_config: 
     peft_type: "LORA"
     task_type: "QUESTION_ANS"
@@ -15,11 +14,15 @@ model:
     fan_in_fan_out: False
     bias: "none"
     target_modules: ["q_lin", "k_lin", "v_lin", "out_lin"]
+  mod_extra_configs:
+    cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf model assets
 
 tokenizer:
   tokenizer_path: "distilbert-base-uncased" # Name of hf tokenizer to load
-  cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf tokenizer assets 
   truncation_side: "right" # Trim this side of samples if they are longer than LM context
+  tokenizer_extra_configs:
+    cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf tokenizer assets 
+
 
 optimizer:
   name: "adamw" # Name of optimizer to load

@@ -1,5 +1,4 @@
-__all__ = ["MissingEnvironmentVariableError",
-           "ModelNotFoundError"]
+__all__ = ["MissingEnvironmentVariableError", "ModelNotFoundError"]
 
 
 class MissingEnvironmentVariableError(Exception):
@@ -7,6 +6,7 @@ class MissingEnvironmentVariableError(Exception):
 
     def __init__(self, message: str):
         super().__init__(message)
+
 
 class ModelNotFoundError(Exception):
     """Raise an exception when trying to load a model from the registry"""

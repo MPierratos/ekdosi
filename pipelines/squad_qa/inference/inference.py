@@ -7,6 +7,7 @@ from transformers import (
     pipeline,
 )
 
+
 def lora_infer(question, context, MODEL_PATH):
     """Inference with Lora"""
     config = PeftConfig.from_pretrained(MODEL_PATH)

@@ -1,169 +1,213 @@
+import dataclasses as dc
 import logging
+import pathlib
+from typing import List
 
 import torch
 import transformers
 from peft import LoraConfig, get_peft_model
 from sklearn.metrics import f1_score
 from torch import optim
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import DataLoader, Dataset, random_split
 from tqdm import tqdm
-from transformers import DistilBertForQuestionAnswering, DistilBertTokenizerFast
+from transformers import AutoModelForQuestionAnswering, AutoTokenizer
 
-from datasets import SquadDataset
-
+from datasets import DATA_DIR, SquadDataset
 from ekdosi.configs import ExecutorConfig
-
-import pathlib
-
+from ekdosi.utils import get_optimizer
 
 logger = logging.getLogger("ekdosi")
 
-def train(dataset: Dataset,
-          config: ExecutorConfig):
-    
-    transformers.utils.logging.set_verbosity_error()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    LEARNING_RATE = config.optimizer.optimizer_extra_configs['lr']
-    BATCH_SIZE = config.train.batch_size
-    EPOCHS = config.train.epochs
-    DATA_PATH = "/mnt/n/projects/squad/data/raw/train-v2.0.json"
-    CACHE_DIR = "/mnt/n/projects/.cache/"
+@dc.dataclass
+class Trainer:
+    name: str
+    config: ExecutorConfig
 
-    MODEL_PATH = "distilbert-base-uncased"
-    MODEL_SAVE_PATH = f"/mnt/n/projects/squad/models/{MODEL_PATH}-lr{LEARNING_RATE}-epochs{EPOCHS}-batchsize{BATCH_SIZE}/"
+    def __post_init__(self):
+        # ignore verbosity errors in transformers library
+        transformers.utils.logging.set_verbosity_error()
 
-    tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_PATH, cache_dir=CACHE_DIR)
-    model = DistilBertForQuestionAnswering.from_pretrained(
-        MODEL_PATH, cache_dir=CACHE_DIR
-    ).to(device)
+        self.tokenizer = self.setup_tokenizer()
 
-    if 'peft_config' in config.model:
-        if config.model.peft_config['peft_type'] == 'LORA':
-            peft_config = LoraConfig(
-                task_type="QUESTION_ANS",
-                inference_mode=False,
-                r=16,
-                lora_alpha=32,
-                lora_dropout=0.05,
-                fan_in_fan_out=False,
-                bias="none",
-                # to fetch target_modules, look at print(model) and look at Attention layers
-                target_modules=["q_lin", "k_lin", "v_lin", "out_lin"],
+        self.model = self.setup_model()
+
+        self.optimizer = self.setup_optimizer()
+
+    def setup_tokenizer(self) -> AutoTokenizer:
+        """Setup the tokenizer"""
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.config.tokenizer.tokenizer_path,
+            **self.config.tokenizer.tokenizer_extra_configs,
+        )
+        tokenizer.padding_side = self.config.tokenizer.padding_side
+        tokenizer.truncation_side = self.config.tokenizer.truncation_side
+        return tokenizer
+
+    def setup_model(self) -> AutoModelForQuestionAnswering:
+        """Setup the model architeecture.
+
+        Currently calls a QA model.
+
+        # TODO: expand to multiple model types
+        """
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        model = AutoModelForQuestionAnswering.from_pretrained(
+            self.config.model.mod_path, **self.config.model.mod_extra_configs
+        ).to_device(device)
+
+        if "peft_config" in config.model:
+            if config.model.peft_config["peft_type"] == "LORA":
+                peft_config = LoraConfig(**config.model.peft_config)
+
+                logger.info("#" * 32, "Trainable parameters Before LoRA", "#" * 32)
+                logger.info(model.num_parameters())
+                model = get_peft_model(model, peft_config)
+                logger.info("#" * 32, "Trainable parameters After LoRA", "#" * 32)
+                model.print_trainable_parameters()
+
+            else:
+                raise NotImplementedError("Only peft_type of LORA exists currently.")
+        return model
+
+    def setup_optimizer(self) -> torch.optim.Optimizer:
+        """Setup the optimizer"""
+        if hasattr(self, "model"):
+            optimizer_class = get_optimizer(self.config.optimizer)
+            optimizer = optimizer_class(
+                self.model_parameters, **self.config.optimizer.optimizer_extra_configs
             )
-            logger.info("#" * 32, "Trainable parameters Before LoRA", "#" * 32)
-            logger.info(model.num_parameters()) 
-            model = get_peft_model(model, config)
-            logger.info("#" * 32, "Trainable parameters After LoRA", "#" * 32)
-        model.print_trainable_parameters()
+            return optimizer
+        else:
+            raise ValueError("No model found.")
 
-    dataset = SquadDataset(
-        data_path=DATA_PATH, data_sample_size=20_000, tokenizer=tokenizer
-    )
+    def train(
+        self,
+        dataset: Dataset,
+        data_split: List[float] = [0.8, 0.1, 0.1],
+        debug_mode: bool = False,
+    ):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    generator = torch.Generator().manual_seed(42)
-    train_dataset, val_dataset, test_dataset = random_split(
-        dataset, [0.8, 0.1, 0.1], generator=generator
-    )
+        if debug_mode:
+            data_sample_size = 10_000
 
-    train_dataloader = DataLoader(
-        dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True
-    )
+        BATCH_SIZE = config.train.batch_size
 
-    val_dataloader = DataLoader(
-        dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=True
-    )
+        data = dataset(
+            data_path=DATA_PATH,
+            data_sample_size=data_sample_size,
+            tokenizer=self.tokenizer,
+        )
 
-    test_dataloader = DataLoader(
-        dataset=test_dataset, batch_size=BATCH_SIZE, shuffle=True
-    )
+        generator = torch.Generator().manual_seed(42)
 
-    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+        train_dataset, val_dataset, test_dataset = random_split(
+            data, data_split, generator=generator
+        )
 
-    for epoch in tqdm(range(EPOCHS)):
-        model.train()
-        train_running_loss = 0
-        for idx, sample in enumerate(tqdm(train_dataloader)):
-            input_ids = sample["input_ids"].to(device)
-            attention_mask = sample["attention_mask"].to(device)
-            start_positions = sample["start_positions"].to(device)
-            end_positions = sample["end_positions"].to(device)
+        train_dataloader = DataLoader(
+            dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True
+        )
 
-            outputs = model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                start_positions=start_positions,
-                end_positions=end_positions,
-            )
-            loss = outputs.loss
+        val_dataloader = DataLoader(
+            dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=True
+        )
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            train_running_loss += loss.item()
+        test_dataloader = DataLoader(
+            dataset=test_dataset, batch_size=BATCH_SIZE, shuffle=True
+        )
 
-        train_loss = train_running_loss / (idx + 1)
-
-        model.eval()
-        val_running_loss = 0
-        with torch.no_grad():
-            for idx, sample in enumerate(tqdm(val_dataloader)):
+        for epoch in tqdm(range(config.train.epochs)):
+            self.model.train()
+            train_running_loss = 0
+            for idx, sample in enumerate(tqdm(train_dataloader)):
                 input_ids = sample["input_ids"].to(device)
                 attention_mask = sample["attention_mask"].to(device)
                 start_positions = sample["start_positions"].to(device)
                 end_positions = sample["end_positions"].to(device)
 
-                outputs = model(
+                outputs = self.model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
                     start_positions=start_positions,
                     end_positions=end_positions,
                 )
+                loss = outputs.loss
 
-                val_running_loss += outputs.loss.item()
-            val_loss = val_running_loss / (idx + 1)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                train_running_loss += loss.item()
 
-        logger.info("-" * 30)
-        logger.info(f"Train Loss Epoch {epoch+1}: {train_loss:.4f}")
-        logger.info(f"Valid Loss Epoch {epoch+1}: {val_loss:.4f}")
-        logger.info("-" * 30)
+            train_loss = train_running_loss / (idx + 1)
 
-    model.save_pretrained(MODEL_SAVE_PATH)
-    tokenizer.save_pretrained(MODEL_SAVE_PATH)
+            self.model.eval()
+            val_running_loss = 0
+            with torch.no_grad():
+                for idx, sample in enumerate(tqdm(val_dataloader)):
+                    input_ids = sample["input_ids"].to(device)
+                    attention_mask = sample["attention_mask"].to(device)
+                    start_positions = sample["start_positions"].to(device)
+                    end_positions = sample["end_positions"].to(device)
 
-    torch.cuda.empty_cache()
+                    outputs = self.model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        start_positions=start_positions,
+                        end_positions=end_positions,
+                    )
 
-    model.eval()
-    preds = []
-    true = []
-    with torch.no_grad():
-        for idx, sample in enumerate(tqdm(test_dataloader)):
-            input_ids = sample["input_ids"].to(device)
-            attention_mask = sample["attention_mask"].to(device)
-            start_positions = sample["start_positions"]
-            end_positions = sample["end_positions"]
+                    val_running_loss += outputs.loss.item()
+                val_loss = val_running_loss / (idx + 1)
 
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            logger.info("-" * 30)
+            logger.info(f"Train Loss Epoch {epoch+1}: {train_loss:.4f}")
+            logger.info(f"Valid Loss Epoch {epoch+1}: {val_loss:.4f}")
+            logger.info("-" * 30)
 
-            start_pred = torch.argmax(outputs["start_logits"], dim=1).cpu().detach()
-            end_pred = torch.argmax(outputs["end_logits"], dim=1).cpu().detach()
+        MODEL_SAVE_PATH = f"/mnt/n/projects/squad/models/{self.name}"
 
-            preds.extend([[int(i), int(j)] for i, j in zip(start_pred, end_pred)])
-            true.extend(
-                [[int(i), int(j)] for i, j in zip(start_positions, end_positions)]
-            )
+        self.model.save_pretrained(MODEL_SAVE_PATH)
+        self.tokenizer.save_pretrained(MODEL_SAVE_PATH)
 
-    preds = [item for sublist in preds for item in sublist]
-    true = [item for sublist in true for item in sublist]
+        torch.cuda.empty_cache()
 
-    f1_value = f1_score(true, preds, average="macro")
-    logger.info(f1_value)
+        self.model.eval()
+        preds = []
+        true = []
+        with torch.no_grad():
+            for idx, sample in enumerate(tqdm(test_dataloader)):
+                input_ids = sample["input_ids"].to(device)
+                attention_mask = sample["attention_mask"].to(device)
+                start_positions = sample["start_positions"]
+                end_positions = sample["end_positions"]
 
+                outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+
+                start_pred = torch.argmax(outputs["start_logits"], dim=1).cpu().detach()
+                end_pred = torch.argmax(outputs["end_logits"], dim=1).cpu().detach()
+
+                preds.extend([[int(i), int(j)] for i, j in zip(start_pred, end_pred)])
+                true.extend(
+                    [[int(i), int(j)] for i, j in zip(start_positions, end_positions)]
+                )
+
+        preds = [item for sublist in preds for item in sublist]
+        true = [item for sublist in true for item in sublist]
+
+        f1_value = f1_score(true, preds, average="macro")
+        logger.info(f1_value)
 
 
 if __name__ == "__main__":
-
     config_path = pathlib.Path(__file__).parent.parent / "config.yml"
     logger.info(config_path)
-    config  = ExecutorConfig.load_yaml(config_path)
-    
+    config = ExecutorConfig.load_yaml(config_path)
+
+    qa_train = Trainer("distilbert-tmp", config)
+
+    DATA_PATH = DATA_DIR / "squad/data/raw/train-v2.0.json"
+
+    qa_train.train(dataset=SquadDataset, debug_mode=True)

@@ -2,6 +2,7 @@ import logging
 
 import torch
 import torch.nn as nn
+
 from ekdosi.models import register_model
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class BERTEmbedding(nn.Module):
             self.tok_embed(seq) + self.seg_embed(seg) + self.pos_embed(self.pos_inp)
         )
         return embed_val
+
 
 @register_model
 class BERT(nn.Module):

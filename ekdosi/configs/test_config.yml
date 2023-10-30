@@ -1,26 +1,34 @@
 train:
-  seq_length: 64 # Size of LM context
   epochs: 3 # Train for max(epochs, total_steps)
-  total_steps: 1000 # Train for max(epochs, total_steps)
   batch_size: 16 # batch size
 
 model:
   mod_path: "distilbert-base-uncased" # Name of hf model to load
-  cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf model assets
+  peft_config: 
+    peft_type: "LORA"
+    task_type: "QUESTION_ANS"
+    inference_mode: False
+    r: 8
+    lora_alpha: 32
+    lora_dropout: 0.05
+    fan_in_fan_out: False
+    bias: "none"
+    target_modules: ["q_lin", "k_lin", "v_lin", "out_lin"]
+  mod_extra_configs:
+    cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf model assets
 
 tokenizer:
   tokenizer_path: "distilbert-base-uncased" # Name of hf tokenizer to load
-  cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf tokenizer assets 
   truncation_side: "right" # Trim this side of samples if they are longer than LM context
+  tokenizer_extra_configs:
+    cache_dir: "/mnt/n/projects/.cache/" # location to extract/save hf tokenizer assets 
+
 
 optimizer:
   name: "adamw" # Name of optimizer to load
-  kwargs:
-    lr: 1.412e-4 # Learning rate
-    betas: [0.9, 0.95] # Adam betas
-    eps: 1.0e-8 # Adam eps
-    weight_decay: 1.0e-6 # Weight decay param
-
+  optimizer_extra_configs:
+    lr: 5e-5 # Learning rate
+    
 scheduler:
   name: "cosine_annealing" # Name of learning rate scheduler
   kwargs:

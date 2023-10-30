@@ -1,6 +1,6 @@
 import ekdosi.__module as __module
 
-__all__ = ["settings", "errors", "configs","models"]
+__all__ = ["settings", "errors", "configs", "utils", "models"]
 
 
 def load_local_modules() -> None:
@@ -9,10 +9,7 @@ def load_local_modules() -> None:
     In particular, it supports timing the individual load times of
     the submodules.
     """
-    SUBMODULE_IMPORT_ORDER = ["settings", 
-                              "errors", 
-                              "configs",  
-                              "models"]
+    SUBMODULE_IMPORT_ORDER = ["settings", "errors", "configs", "utils", "models"]
 
     __module.utils.ImportTimerBulk(
         module_names=SUBMODULE_IMPORT_ORDER,

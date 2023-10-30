@@ -88,6 +88,7 @@ class SquadDataset(Dataset):
 
 def test_squad_dataset():
     from transformers import DistilBertTokenizerFast
+
     from datasets import DATA_DIR
 
     CACHE_DIR = "/mnt/n/projects/.cache/"
