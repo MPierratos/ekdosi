@@ -1,6 +1,7 @@
 from typing import Dict
 import sys
 from ekdosi.errors import ModelNotFoundError
+from ekdosi.models import components
 
 __all__ = ["BERTEmbedding", "BERT", "register_model"]
 
