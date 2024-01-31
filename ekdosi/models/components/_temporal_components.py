@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+__all__ = ["DifferenceLayer"]
+
 
 class DifferenceLayer(nn.Module):
     """Assumes <batch>, <time>, <channels>,

@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+__all__ = ["GeometricStepDownDense", "GeometricStepUpDense"]
+
 
 def generate_geometric_series(
     min_n: int, max_n: int, reverse: bool = False
@@ -39,7 +41,7 @@ def generate_geometric_series(
     return series
 
 
-class GeometricStepDownDense(nn.Module):
+class GeometricStepDownDenseLayer(nn.Module):
     """Creates a dense set of layers that steps down gradually (by log2)
 
     The dense layers include a linear layer, a dropout layer, and a batch norm layer.
@@ -67,7 +69,7 @@ class GeometricStepDownDense(nn.Module):
         dropout: float = 0.05,
         batch_norm: bool = True,
     ):
-        super(GeometricStepDownDense, self).__init__()
+        super(GeometricStepDownDenseLayer, self).__init__()
         max_n = math.floor(math.log2(input_dim))
         min_n = int(min_n)
         series = generate_geometric_series(min_n, max_n, reverse=True)
@@ -86,7 +88,7 @@ class GeometricStepDownDense(nn.Module):
         return x
 
 
-class GeometricStepUpDense(nn.Module):
+class GeometricStepUpDenseLayer(nn.Module):
     """Creates a dense set of layers that steps up gradually (by log2)
 
     The dense layers include a linear layer, a dropout layer, and a batch norm layer.

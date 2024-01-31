@@ -15,7 +15,6 @@ class EmbeddingLayer(nn.Module):
         output_dimension: int = 64,
         random_mask: float = None,
         embedding_kwargs: Dict[str, Any] = dict(),
-        static_vocab_kwargs: Dict[str, Any] = dict(),
         **kwargs: Dict[str, Any],
     ) -> None:
         super(EmbeddingLayer, self).__init__()
@@ -49,6 +48,50 @@ class EmbeddingLayer(nn.Module):
         return x
 
 
+class EncoderEmbeddingLayer(nn.Module):
+    def __init__(
+        self,
+        vocab: List[str],
+        num_oov_buckets: int = 1,
+        lookups_per_sample: int = 1,
+        output_dimension: int = 64,
+        random_mask: float = None,
+        embedding_kwargs: Dict[str, Any] = dict(),
+        **kwargs: Dict[str, Any],
+    ) -> None:
+        super(EncoderEmbeddingLayer, self).__init__()
+        self.word2idx = {word: ind for ind, word in enumerate(vocab)}
+        self.num_oov_buckets = num_oov_buckets
+        self.output_dim = output_dimension
+        self.extra_args = kwargs
+        self.lookup_cardinality = len(vocab) + num_oov_buckets
+        self.lookups_per_sample = lookups_per_sample
+        self.embedding_kwargs = embedding_kwargs
+        if random_mask is not None:
+            assert num_oov_buckets == 1
+            assert 0.0 <= random_mask <= 1.0
+        self.random_mask = random_mask
+        self.embedding = nn.Embedding(
+            self.lookup_cardinality, self.output_dim, **self.embedding_kwargs
+        )
+        self.reshaper = nn.Flatten()
+
+    def forward(
+        self, text_input: List[str], return_lookup: bool = False
+    ) -> torch.Tensor:
+        encoded_input = [self.word2idx[word] for word in text_input]
+        inputs = torch.tensor(encoded_input)
+        x = inputs
+        if self.training and self.random_mask is not None:
+            mask = torch.rand_like(x, dtype=torch.float) < self.random_mask
+            x = torch.where(mask, torch.full_like(x, self.lookup_cardinality - 1), x)
+        if return_lookup:
+            return x
+        x = self.embedding(x)
+        x = self.reshaper(x)
+        return x
+
+
 def test_embedding() -> torch.Tensor:
     embedding_layer = EmbeddingLayer(lookup_keys=[0, 1], random_mask=1 / 20)
     input_tensor = torch.tensor([0, 1] * 500)
@@ -66,6 +109,14 @@ def test_with_encoder() -> torch.Tensor:
 
     embedding_layer = EmbeddingLayer(lookup_keys=unique_values, random_mask=1 / 20)
     output = embedding_layer(input_tensor)
+    return output
+
+
+def test_with_encoder_embedder() -> torch.Tensor:
+    vocab = ["GRE", "LEW"]
+    text_input = ["GRE", "GRE", "LEW", "GRE", "GRE", "LEW"]
+    encoder_embedder = EncoderEmbeddingLayer(vocab, random_mask=1 / 20)
+    output = encoder_embedder(text_input)
     return output
 
 
