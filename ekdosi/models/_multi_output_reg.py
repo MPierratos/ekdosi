@@ -56,28 +56,34 @@ class SimpleNet(nn.Module):
         super(SimpleNet, self).__init__()
         self.encoder_embedding = EncoderEmbeddingLayer(vocab=embedding_vocab)
         self.fc1 = nn.Linear(input_size + self.encoder_embedding.output_dim, 64)
-        self.fc2 = nn.Linear(64, output_size)
+        self.fc2 = nn.ModuleList([nn.Linear(64, 1) for _ in range(output_size)])
 
     def forward(self, x):
         features, embeddings = x
         embeddings = self.encoder_embedding(embeddings)
         x = torch.cat((features, embeddings), dim=1)
         x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = torch.cat([fc(x) for fc in self.fc2], dim=1)
         return x
 
 
 class Trainer:
-    def __init__(self, model, criterion, config):
-        self.model = model
-        self.criterion = criterion
+    def __init__(self, config: ExecutorConfig):
+        """
+        Initializes the Trainer class.
+
+        Args:
+            config (Config): The configuration settings.
+        """
         self.config = config
         self.train_loader, self.val_loader = self._get_data_loaders(config.dataset.name)
         self.epochs = config.epochs
         self.learning_rate = config.optimizer.optimizer_extra_configs.lr
-        self.optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
+        self.model = self._get_model(config.model.name)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.scheduler = None
         self._setup_scheduler(config)
+        self._setup_loss_function()
         self.writer = SummaryWriter()
         self.train_losses = []
         self.val_losses = []
@@ -129,6 +135,9 @@ class Trainer:
             else:
                 raise ValueError("Unsupported learning rate scheduler")
 
+    def _setup_loss_function(self):
+        self.loss_function = nn.MSELoss(reduction="mean")
+
     def train(self):
         start_time = time.time()
         best_val_loss = float("inf")
@@ -138,7 +147,7 @@ class Trainer:
                 inputs, labels = data
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
-                loss = self.criterion(outputs, labels)
+                loss = self.loss_function(outputs, labels)
                 loss.backward()
                 self.optimizer.step()
                 if self.scheduler:
@@ -160,7 +169,7 @@ class Trainer:
                 for i, data in enumerate(self.val_loader, 0):
                     inputs, labels = data
                     outputs = self.model(inputs)
-                    loss = self.criterion(outputs, labels)
+                    loss = self.loss_function(outputs, labels)
                     val_loss += loss.item()
             epoch_val_loss = val_loss / len(self.val_loader)
             self.val_losses.append(epoch_val_loss)
