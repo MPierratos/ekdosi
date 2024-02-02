@@ -35,6 +35,7 @@ class HDF5Dataset(Dataset):
             self.embeddings = file["train"]["embeddings"][:]
             self.targets = file["train"]["targets"][:]
             self.embedding_fields = file["train"]["embedding_fields"][:]
+            self.class_weights = file["class_weights"][:]  # Load class weights
         self.length = self.features.shape[0]
         self.output_shape = self.targets.shape[
             -1
@@ -44,7 +45,8 @@ class HDF5Dataset(Dataset):
         features = self.features[index]
         embeddings = self.embeddings[index]
         targets = self.targets[index]
-        return (features, embeddings), targets
+        class_weight = self.class_weights[index]  # Get class weight for the current index
+        return (features, embeddings, class_weight), targets  # Include class weight in the return tuple
 
     def __len__(self):
         return self.length
@@ -59,7 +61,7 @@ class SimpleNet(nn.Module):
         self.fc2 = nn.ModuleList([nn.Linear(64, 1) for _ in range(output_size)])
 
     def forward(self, x):
-        features, embeddings = x
+        features, embeddings, _ = x  # Unpack class weight, but it's not used in forward pass
         embeddings = self.encoder_embedding(embeddings)
         x = torch.cat((features, embeddings), dim=1)
         x = torch.relu(self.fc1(x))
@@ -144,10 +146,11 @@ class Trainer:
         for epoch in range(self.epochs):
             running_loss = 0.0
             for i, data in enumerate(self.train_loader, 0):
-                inputs, labels = data
+                (inputs, class_weight), labels = data
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
-                loss = self.loss_function(outputs, labels)
+                loss = self.loss_function(outputs, labels) * class_weight  # Apply class weight to the loss
+                loss = loss.mean()  # Take the mean to match the expected loss function output
                 loss.backward()
                 self.optimizer.step()
                 if self.scheduler:
@@ -167,9 +170,10 @@ class Trainer:
             self.model.eval()
             with torch.no_grad():
                 for i, data in enumerate(self.val_loader, 0):
-                    inputs, labels = data
+                    (inputs, class_weight), labels = data
                     outputs = self.model(inputs)
-                    loss = self.loss_function(outputs, labels)
+                    loss = self.loss_function(outputs, labels) * class_weight  # Apply class weight to the loss
+                    loss = loss.mean()  # Take the mean to match the expected loss function output
                     val_loss += loss.item()
             epoch_val_loss = val_loss / len(self.val_loader)
             self.val_losses.append(epoch_val_loss)
